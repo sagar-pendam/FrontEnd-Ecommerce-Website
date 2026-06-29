@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = "http://localhost:8084/review-api"; // change port as per your backend
+const API_BASE_URL = "/review-api"; // change port as per your backend
 
 //  1. Add a new review
 export const addReview = async (reviewData, userId) => {

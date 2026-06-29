@@ -1,36 +1,37 @@
-import React, { useEffect, useState } from "react";
-import { getReviewsByProductId } from "../api/reviewService";
-const ProductReviews = ({ productId }) => {
-  const [reviews, setReviews] = useState([]);
+import React from "react";
+import { deleteReview } from "../api/reviewApi";
+import { toast } from "react-hot-toast";
 
-  useEffect(() => {
-    const fetchReviews = async () => {
-      try {
-        const data = await getReviewsByProductId(productId);
-        setReviews(data);
-      } catch (error) {
-        console.error("Error loading reviews:", error);
-      }
-    };
-    fetchReviews();
-  }, [productId]);
+const ProductReviews = ({ reviews, setReviews }) => {
+  const userId = localStorage.getItem("userId");
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete your review?")) return;
+    try {
+      await deleteReview(id);
+      setReviews(reviews.filter(r => r.id !== id));
+      toast.success("Review deleted!");
+    } catch {
+      toast.error("Failed to delete review");
+    }
+  };
 
   return (
-    <div className="mt-6">
-      <h3 className="text-xl font-semibold mb-3">Customer Reviews</h3>
-      {reviews.length === 0 ? (
-        <p>No reviews yet. Be the first to review!</p>
-      ) : (
-        <ul className="space-y-3">
-          {reviews.map((r) => (
-            <li key={r.id} className="border p-3 rounded bg-gray-50">
-              <p className="font-medium">{r.userName || "Anonymous"}</p>
-              <p>{r.comment}</p>
-              <p className="text-yellow-500">⭐ {r.rating}/5</p>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="mt-6 bg-white p-4 rounded shadow">
+      <h2 className="font-bold text-lg mb-2">Customer Reviews</h2>
+      {reviews.length === 0 && <p>No reviews yet.</p>}
+      {reviews.map(r => (
+        <div key={r.id} className="border-b py-2 flex justify-between">
+          <div>
+            <p>★ {r.rating} / 5</p>
+            <p>{r.comment}</p>
+            <p className="text-xs text-gray-400">User ID: {r.userId}</p>
+          </div>
+          {Number(userId) === Number(r.userId) && (
+            <button onClick={() => handleDelete(r.id)} className="text-red-500">Delete</button>
+          )}
+        </div>
+      ))}
     </div>
   );
 };

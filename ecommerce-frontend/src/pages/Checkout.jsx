@@ -1,44 +1,197 @@
-import React, { useState } from "react";
+import React from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
-
+import axios from "axios";
+import api from "../api/axiosInstance";
+import {createOrder} from '../api/orderService';
 const Checkout = () => {
+  const { state } = useLocation();
   const navigate = useNavigate();
+const getAuthHeader = () => {
+  const token = localStorage.getItem("token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+  // ✅ Setup React Hook Form with validation tracking
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm();
 
-  const [formData, setFormData] = useState({
-    name: "",
-    address: "",
-    phone: "",
-    paymentMethod: "cod",
-  });
+  // ✅ Get products passed from cart or buy-now
+  const products = state?.products || [];
+  const type = state?.type || "cart";
 
-  const cartItems = [
-    { id: 1, name: "Wireless Headphones", price: 1499, quantity: 1 },
-    { id: 2, name: "Smart Watch", price: 2999, quantity: 1 },
-  ];
-
-  const subtotal = cartItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
+  // ✅ Safe subtotal calculation (handles various field names)
+  const subtotal = products.reduce(
+    (sum, item) =>
+      sum +
+      (Number(item.price || item.amount || item.productPrice || 0) *
+        Number(item.quantity || item.qty || item.productQty || 1)),
     0
   );
   const shipping = 99;
   const total = subtotal + shipping;
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  // // ✅ Submit order
+  // const onSubmit = async (formData) => {
+  //   if (products.length === 0) {
+  //     alert("No products to order!");
+  //     return;
+  //   }
+
+  //   const orderPayload = {
+  //     userId: localStorage.getItem("userId") || 1,
+  //     paymentMethod: formData.paymentMethod,
+  //     customerName: formData.name,
+  //     address: formData.address,
+  //     phone: formData.phone,
+  //     items: products.map((p) => ({
+  //       productCode: p.productCode,
+  //       productName: p.productName || p.name,
+  //       quantity: p.quantity || p.qty || 1,
+  //       amount: p.price || p.amount || p.productPrice,
+  //     })),
+  //   };
+
+  //   try {
+  //     // await axios.post("http://localhost:8084/order-api/create-order", orderPayload, {
+  //     //   headers: { "X-User-Id": localStorage.getItem("userId") || 1 },
+  //     // });
+  //    let response = await createOrder(orderPayload, localStorage.getItem("userId") || 1);
+  //    console.log(response);
+     
+  //     navigate("/order-success");
+  //   } catch (err) {
+  //     console.error("Order failed:", err);
+  //     alert("Failed to place order. Try again.");
+  //   }
+  // };
+// const onSubmit = async (formData) => {
+//   if (products.length === 0) {
+//     alert("No products to order!");
+//     return;
+//   }
+
+//   const orderPayload = {
+//     userId: localStorage.getItem("userId") || 1,
+//     paymentMethod: formData.paymentMethod.toUpperCase(),
+//     customerName: formData.name,
+//     address: formData.address,
+//     phone: formData.phone,
+//     items: products.map((p) => ({
+//       productCode: p.productCode,
+//       productName: p.productName || p.name,
+//       quantity: p.quantity || p.qty || 1,
+//       amount: p.price || p.amount || p.productPrice,
+//     })),
+//   };
+
+//   try {
+//     // 1️⃣ Create Order
+//     const orderRes = await createOrder(orderPayload, localStorage.getItem("userId") || 1);
+//   console.log(orderRes)
+//     const storeOrderId = orderRes.orderId;
+//     const totalAmount = orderRes.totalAmount;
+
+//     // 2️⃣ Trigger Payment
+//     const paymentRes = await axios.post(
+//   `http://localhost:9191/payment-api/pay/${storeOrderId}`,
+//   null, // request body
+//   {
+//     params: {
+//       // orderId: storeOrderId,
+//       amount: totalAmount,
+//       paymentMethod: formData.paymentMethod.toUpperCase(),
+//     },
+//     headers: getAuthHeader(), // ✅ Add token in headers
+//   }
+// );
+// console.log(paymentRes);
+
+//     const payment = paymentRes.data;
+
+//     // 3️⃣ Navigate based on method
+//     if (formData.paymentMethod === "cod") {
+//       navigate("/order-status", { state: { storeOrderId } });
+//     } else if (formData.paymentMethod === "card") {
+//       navigate("/payment", {
+//         state: {
+//           storeOrderId,
+//           clientSecret: payment.clientSecret,
+//           amount: totalAmount,
+//         },
+//       });
+//     }
+//   } catch (err) {
+//     console.error("Order or Payment failed:", err);
+//     alert("Failed to place order. Try again.");
+//   }
+// };
+const onSubmit = async (formData) => {
+  if (products.length === 0) {
+    alert("No products to order!");
+    return;
+  }
+
+  const orderPayload = {
+    userId: localStorage.getItem("userId") || 1,
+    paymentMethod: formData.paymentMethod.toUpperCase(),
+    customerName: formData.name,
+    address: formData.address,
+    phone: formData.phone,
+    items: products.map((p) => ({
+      productCode: p.productCode,
+      productName: p.productName || p.name,
+      quantity: p.quantity || p.qty || 1,
+      amount: p.price || p.amount || p.productPrice,
+    })),
   };
 
-  const handlePlaceOrder = () => {
-    if (!formData.name || !formData.address || !formData.phone) {
-      alert("Please fill in all fields!");
-      return;
+  try {
+    // 1️⃣ Create Order
+    const orderRes = await createOrder(orderPayload, localStorage.getItem("userId") || 1);
+
+    const storeOrderId = orderRes.orderId;
+    const totalAmount = orderRes.totalAmount;
+
+    // 2️⃣ Trigger Payment
+    const paymentRes = await api.post(
+      `/payment-api/pay/${storeOrderId}`,
+      null,
+      {
+        params: {
+          amount: totalAmount,
+          paymentMethod: formData.paymentMethod.toUpperCase(),
+        },
+        headers: getAuthHeader(),
+      }
+    );
+
+    const payment = paymentRes.data;
+
+    // 3️⃣ Navigate
+    if (formData.paymentMethod === "cod") {
+      navigate("/order-status", { state: { orderId: storeOrderId } });
+
+    } else if (formData.paymentMethod === "card") {
+      navigate("/payment", {
+        state: {
+          orderId: storeOrderId,
+          clientSecret: payment.clientSecret,
+          amount: totalAmount,
+          paymentMethod: formData.paymentMethod.toUpperCase(),
+        },
+      });
     }
 
-    navigate("/order-success");
+  } catch (err) {
+    console.error("Order or Payment failed:", err);
+    alert("Failed to place order. Try again.");
+  }
+};
 
-    // You can send order details to backend here
-  };
 
   return (
     <motion.div
@@ -52,7 +205,7 @@ const Checkout = () => {
       </h2>
 
       <div className="grid md:grid-cols-2 gap-10 max-w-5xl mx-auto">
-        {/* Left: Address Form */}
+        {/* Left: Shipping Form */}
         <motion.div
           className="bg-white shadow-md rounded-xl p-6"
           initial={{ x: -80, opacity: 0 }}
@@ -63,68 +216,81 @@ const Checkout = () => {
             Shipping Details
           </h3>
 
-          <form className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {/* Name */}
             <div>
               <label className="block text-gray-600 mb-1">Full Name</label>
               <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
+                {...register("name", { required: "Please enter your name" })}
                 className="w-full border rounded-lg px-3 py-2 focus:ring focus:ring-indigo-200"
                 placeholder="Enter your name"
               />
+              {errors.name && (
+                <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>
+              )}
             </div>
+
+            {/* Address */}
             <div>
               <label className="block text-gray-600 mb-1">Address</label>
               <textarea
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
+                {...register("address", { required: "Please enter your address" })}
                 className="w-full border rounded-lg px-3 py-2 focus:ring focus:ring-indigo-200"
                 placeholder="Enter your address"
                 rows="3"
-              ></textarea>
+              />
+              {errors.address && (
+                <p className="text-red-500 text-sm mt-1">{errors.address.message}</p>
+              )}
             </div>
+
+            {/* Phone */}
             <div>
               <label className="block text-gray-600 mb-1">Phone Number</label>
               <input
-                type="text"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
+                {...register("phone", {
+                  required: "Please enter your phone number",
+                  pattern: {
+                    value: /^[6-9]\d{9}$/,
+                    message: "Enter a valid 10-digit mobile number",
+                  },
+                })}
                 className="w-full border rounded-lg px-3 py-2 focus:ring focus:ring-indigo-200"
                 placeholder="Enter phone number"
               />
+              {errors.phone && (
+                <p className="text-red-500 text-sm mt-1">{errors.phone.message}</p>
+              )}
             </div>
 
+            {/* Payment Method */}
             <div>
-              <label className="block text-gray-600 mb-1">
-                Payment Method
-              </label>
+              <label className="block text-gray-600 mb-1">Payment Method</label>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2">
                   <input
                     type="radio"
-                    name="paymentMethod"
                     value="cod"
-                    checked={formData.paymentMethod === "cod"}
-                    onChange={handleChange}
+                    {...register("paymentMethod")}
+                    defaultChecked
                   />
                   Cash on Delivery
                 </label>
                 <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="card"
-                    checked={formData.paymentMethod === "card"}
-                    onChange={handleChange}
-                  />
+                  <input type="radio" value="card" {...register("paymentMethod")} />
                   Credit / Debit Card
                 </label>
               </div>
             </div>
+
+            {/* Submit Button */}
+            <motion.button
+              type="submit"
+              whileTap={{ scale: 0.95 }}
+              className="mt-6 w-full bg-indigo-600 text-white py-2 rounded-lg font-medium hover:bg-indigo-700 transition"
+            >
+              Place Order
+            </motion.button>
           </form>
         </motion.div>
 
@@ -139,26 +305,27 @@ const Checkout = () => {
             Order Summary
           </h3>
 
-          <div className="space-y-4">
-            {cartItems.map((item) => (
-              <div
-                key={item.id}
-                className="flex justify-between items-center border-b pb-2"
-              >
+          {products.length === 0 ? (
+            <p className="text-gray-500 text-center">No products selected.</p>
+          ) : (
+            products.map((item) => (
+              <div key={item.productCode || item.id} className="flex justify-between mb-3">
                 <div>
-                  <p className="font-medium text-gray-800">{item.name}</p>
-                  <p className="text-gray-500 text-sm">
-                    Qty: {item.quantity}
+                  <p className="font-medium">{item.productName || item.name}</p>
+                  <p className="text-sm text-gray-500">
+                    Qty: {item.quantity || item.qty || 1}
                   </p>
                 </div>
                 <p className="font-semibold text-gray-800">
-                  ₹{item.price * item.quantity}
+                  ₹
+                  {(item.price || item.amount || item.productPrice) *
+                    (item.quantity || item.qty || item.productQty || 1)}
                 </p>
               </div>
-            ))}
-          </div>
+            ))
+          )}
 
-          <div className="mt-6 border-t pt-4 space-y-2">
+          <div className="border-t pt-4 space-y-2 mt-4">
             <div className="flex justify-between text-gray-700">
               <span>Subtotal</span>
               <span>₹{subtotal}</span>
@@ -172,14 +339,6 @@ const Checkout = () => {
               <span>₹{total}</span>
             </div>
           </div>
-
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={handlePlaceOrder}
-            className="mt-6 w-full bg-indigo-600 text-white py-2 rounded-lg font-medium hover:bg-indigo-700 transition"
-          >
-            Place Order
-          </motion.button>
         </motion.div>
       </div>
     </motion.div>

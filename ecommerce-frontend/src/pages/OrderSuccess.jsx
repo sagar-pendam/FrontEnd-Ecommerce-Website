@@ -1,15 +1,87 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 import { motion } from "framer-motion";
 import { CheckCircle } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import api from "../api/axiosInstance";
+const getAuthHeader = () => {
+  const token = localStorage.getItem("token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 const OrderSuccess = () => {
   const navigate = useNavigate();
+  const { state } = useLocation();
+  const { orderId } = state || {};
+  const [order, setOrder] = useState(null);
+  const [refundDone, setRefundDone] = useState(false); // NEW
 
+  // update status api
+  const updatePaymentStatus = async (orderId, status) => {
+    try {
+      await api.post(
+        `/payment-api/update-status/${orderId}`,
+        null,
+        {
+          params: { status },
+          headers: getAuthHeader(),
+        }
+      );
+    } catch (err) {
+      console.error("Payment update failed:", err);
+    }
+  };
+ 
+  // refund api
+  const refundPayment = async (orderId, amount) => {
+    try {
+      await api.post(
+        `/payment-api/refund/${orderId}`,
+        null,
+        {
+          params: { amount },
+          headers: getAuthHeader(),
+        }
+      );
+
+      setRefundDone(true); // Show refund UI
+
+    } catch (err) {
+      console.error("Refund failed:", err);
+    }
+  };
+
+  // fetch order & trigger status logic
   useEffect(() => {
-    const timer = setTimeout(() => {
-      navigate("/products"); // redirect after 4 seconds
-    }, 4000);
+    const fetchOrder = async () => {
+      try {
+        const response = await api.get(
+          `/order-api/orders/${orderId}`,
+          { headers: getAuthHeader() }
+        );
+       console.log("Order Response:", response.data);
+console.log("Order Status:", response.data.status);
+
+        console.log("State:", state);
+console.log("orderId received:", orderId);
+
+        setOrder(response.data);
+
+       
+      
+
+      } catch (err) {
+        console.error("Failed to fetch order:", err);
+      }
+    };
+
+    if (orderId) fetchOrder();
+  }, [orderId]);
+
+
+  // Redirect after 4 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => navigate("/products"), 4000);
     return () => clearTimeout(timer);
   }, [navigate]);
 
@@ -21,75 +93,36 @@ const OrderSuccess = () => {
         transition={{ type: "spring", stiffness: 120, damping: 10 }}
         className="flex flex-col items-center text-center bg-white shadow-lg rounded-2xl p-10 max-w-md"
       >
-        {/* Success Icon */}
+        {/* Icon */}
         <motion.div
           initial={{ rotate: -90, opacity: 0 }}
           animate={{ rotate: 0, opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="text-green-500 mb-4"
+          className={refundDone ? "text-red-500 mb-4" : "text-green-500 mb-4"}
         >
           <CheckCircle size={80} />
         </motion.div>
 
-        {/* Text Content */}
-        <motion.h2
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="text-3xl font-bold text-gray-800 mb-2"
-        >
-          Order Confirmed 🎉
-        </motion.h2>
-
-        <motion.p
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          className="text-gray-600 mb-6"
-        >
-          Thank you for shopping with <span className="font-semibold text-indigo-600">ShopEase</span>!  
-          Your order has been placed successfully.
-        </motion.p>
-
-        {/* Animated Dots */}
-        <motion.div
-          className="flex gap-2 mb-4"
-          initial="hidden"
-          animate="visible"
-          variants={{
-            visible: {
-              transition: {
-                staggerChildren: 0.2,
-                repeat: Infinity,
-              },
-            },
-          }}
-        >
-          {[0, 1, 2].map((i) => (
-            <motion.span
-              key={i}
-              className="w-3 h-3 bg-indigo-500 rounded-full"
-              variants={{
-                hidden: { opacity: 0.3, scale: 0.8 },
-                visible: { opacity: 1, scale: 1 },
-              }}
-              transition={{
-                repeat: Infinity,
-                duration: 0.6,
-                repeatType: "reverse",
-              }}
-            />
-          ))}
-        </motion.div>
-
-        {/* Button to go manually */}
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          onClick={() => navigate("/products")}
-          className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-indigo-700 transition"
-        >
-          Continue Shopping
-        </motion.button>
+        {/* Text */}
+        {!refundDone ? (
+          <>
+            <motion.h2 className="text-3xl font-bold text-gray-800 mb-2">
+              Order Confirmed 🎉
+            </motion.h2>
+            <p className="text-gray-600 mb-6">
+              Thank you for shopping! Processing your order...
+            </p>
+          </>
+        ) : (
+          <>
+            <motion.h2 className="text-3xl font-bold text-red-600 mb-2">
+              Order Cancelled ❌
+            </motion.h2>
+            <p className="text-gray-700 mb-6 font-semibold">
+              ₹{order?.totalAmount} has been refunded successfully 💰
+            </p>
+          </>
+        )}
       </motion.div>
     </div>
   );

@@ -1,19 +1,44 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { motion } from "framer-motion";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { getProductById } from "../api/productApi";
-import { handleAddToCart,handleAddToWishlist } from "../utils/productAction";
+import { handleAddToCart, handleAddToWishlist } from "../utils/productAction";
 import ProductReviews from "../components/ProductReviews";
 import AddReviewForm from "../components/AddReviewForm";
-const ProductDetails = () => {
-  const { id } = useParams(); // URL parameter
-  const [product, setProduct] = useState(null);
+import { getReviewsByProduct } from "../api/reviewApi";
+import { AuthContext } from "../context/AuthContext"; // Import AuthContext
 
+const ProductDetails = () => {
+  const { id } = useParams();
+  const productId = id;
+  const [product, setProduct] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const navigate = useNavigate();
+  const { user } = useContext(AuthContext); // Check if user is logged in
+  const isLoggedIn = !!user?.token;
+
+  // Fetch product details
   useEffect(() => {
     getProductById(id)
       .then((data) => setProduct(data))
       .catch((err) => console.error("Error fetching product:", err));
   }, [id]);
+
+  // Fetch reviews
+  useEffect(() => {
+    getReviewsByProduct(productId)
+      .then((data) => setReviews(data))
+      .catch((err) => console.error("Error fetching reviews:", err));
+  }, [productId]);
+
+  // Helper to handle actions requiring login
+  const handleAuthAction = (action) => {
+    if (isLoggedIn) {
+      action();
+    } else {
+      navigate("/login");
+    }
+  };
 
   if (!product) {
     return (
@@ -34,7 +59,6 @@ const ProductDetails = () => {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
-      {/* Container */}
       <motion.div
         className="bg-white rounded-2xl shadow-lg grid md:grid-cols-2 gap-10 p-8"
         initial={{ y: 40, opacity: 0 }}
@@ -88,7 +112,20 @@ const ProductDetails = () => {
             <motion.button
               whileTap={{ scale: 0.95 }}
               whileHover={{ scale: 1.05 }}
-              onClick={() => { handleAddToCart(product) }}
+              onClick={() =>
+                handleAuthAction(() =>
+                  navigate("/checkout", { state: { type: "buyNow", products: [product] } })
+                )
+              }
+              className="bg-green-600 text-white px-6 py-3 rounded-lg font-medium shadow hover:bg-green-700 transition"
+            >
+              ⚡ Buy Now
+            </motion.button>
+
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.05 }}
+              onClick={() => handleAuthAction(() => handleAddToCart(product))}
               className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium shadow hover:bg-indigo-700 transition"
             >
               🛒 Add to Cart
@@ -97,14 +134,26 @@ const ProductDetails = () => {
             <motion.button
               whileTap={{ scale: 0.95 }}
               whileHover={{ scale: 1.05 }}
-              onClick={()=>{handleAddToWishlist(product)}}
+              onClick={() => handleAuthAction(() => handleAddToWishlist(product))}
               className="border border-indigo-600 text-indigo-600 px-6 py-3 rounded-lg font-medium hover:bg-indigo-50 transition"
             >
               ❤️ Add to Wishlist
             </motion.button>
           </div>
-          <AddReviewForm productId={id} />
-    <ProductReviews productId={id} />
+
+          {/* Review Components */}
+          {isLoggedIn ? (
+            <AddReviewForm productId={productId} reviews={reviews} setReviews={setReviews} />
+          ) : (
+            <p className="text-sm text-gray-500 mt-4">
+              <span className="text-blue-600 cursor-pointer" onClick={() => navigate("/login")}>
+                Login
+              </span>{" "}
+              to write a review.
+            </p>
+          )}
+
+          <ProductReviews reviews={reviews} setReviews={setReviews} />
         </div>
       </motion.div>
     </motion.div>

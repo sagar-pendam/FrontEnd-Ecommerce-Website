@@ -3,7 +3,8 @@ import { useForm } from "react-hook-form";
 import { registerUser } from "../api/authApi";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 const Register = () => {
   const {
     register,
@@ -27,6 +28,7 @@ const Register = () => {
         role: "ROLE_USER",
       });
       alert("Registration successful! Please log in.");
+      toast.success("Registration successful! Please log in");
       navigate("/login");
     } catch (error) {
       if (error.response && error.response.data) {

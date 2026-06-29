@@ -139,11 +139,15 @@ function Cart() {
           <span className="text-gray-600 text-lg">Subtotal</span>
           <span className="font-bold text-lg">₹{total.toFixed(2)}</span>
         </div>
-        <Link to="/checkout">
+        <Link
+          to="/checkout"
+          state={{ type: "cart", products: cartItems }}
+        >
           <motion.button className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold shadow-md hover:bg-blue-700">
             Proceed to Checkout
           </motion.button>
         </Link>
+
 
         <motion.button
           onClick={handleClearCart}

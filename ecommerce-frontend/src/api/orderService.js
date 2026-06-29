@@ -1,17 +1,24 @@
 import axios from "axios";
+import api from "./axiosInstance";
+const API_BASE_URL = "/order-api"; // via API Gateway
 
-const API_BASE_URL = "http://localhost:9191/order-api"; 
+// Reuse JWT token header builder
+const getAuthHeader = () => {
+  const token = localStorage.getItem("token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
-//  Create a new order
+// ✅ Create a new order (secured)
 export const createOrder = async (orderData, userId) => {
   try {
-    const response = await axios.post(
+    const response = await api.post(
       `${API_BASE_URL}/create-order`,
       orderData,
       {
         headers: {
           "Content-Type": "application/json",
-          "X-User-Id": userId, // sending logged-in user's ID
+          "X-User-Id": userId,
+          ...getAuthHeader(), // ✅ attach JWT token here
         },
       }
     );
@@ -22,10 +29,12 @@ export const createOrder = async (orderData, userId) => {
   }
 };
 
-//  Get a single order by ID
+// Other functions unchanged...
 export const getOrderById = async (id) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/show-order/${id}`);
+    const response = await api.get(`${API_BASE_URL}/show-order/${id}`, {
+      headers: getAuthHeader(),
+    });
     return response.data;
   } catch (error) {
     console.error("Error fetching order:", error);
@@ -33,10 +42,11 @@ export const getOrderById = async (id) => {
   }
 };
 
-//  Get all orders (for admin view)
 export const getAllOrders = async () => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/show-order/all`);
+    const response = await api.get(`${API_BASE_URL}/show-order/all`, {
+      headers: getAuthHeader(),
+    });
     return response.data;
   } catch (error) {
     console.error("Error fetching orders:", error);
@@ -44,10 +54,12 @@ export const getAllOrders = async () => {
   }
 };
 
-//  Get orders for a specific user
 export const getOrdersByUserId = async (userId) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/user/${userId}/orders`);
+    const response = await api.get(
+      `${API_BASE_URL}/user/${userId}/orders`,
+      { headers: getAuthHeader() }
+    );
     return response.data;
   } catch (error) {
     console.error("Error fetching user orders:", error);

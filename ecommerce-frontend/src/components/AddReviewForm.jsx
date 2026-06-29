@@ -1,80 +1,75 @@
-import React, { useState } from "react";
-import { addReview } from "../api/reviewService";
-import { useNavigate } from "react-router-dom"; 
-import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-const AddReviewForm = ({ productId }) => {
-  const [rating, setRating] = useState(5);
-  const [comment, setComment] = useState("");
-  const navigate = useNavigate();
+import React, { useState, useEffect } from "react";
+import { addReview, updateReview, getUserReviewForProduct } from "../api/reviewApi";
+import { toast } from "react-hot-toast";
+
+const AddReviewForm = ({ productId, reviews, setReviews }) => {
   const userId = localStorage.getItem("userId");
+  const token = localStorage.getItem("token");
+
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [reviewId, setReviewId] = useState(null);
+
+  useEffect(() => {
+    if (!userId) return;
+    getUserReviewForProduct(productId, userId).then((data) => {
+      if (data) {
+        setRating(data.rating);
+        setComment(data.comment);
+        setReviewId(data.id);
+      }
+    });
+  }, [productId, userId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    //  Check if user is logged in
-    if (!userId) {
-      alert("Please log in to submit a review.");
-      navigate("/login"); // redirect to login page
-      return;
-    }
+    if (rating === 0) return toast.error("Please select a rating");
+    if (comment.trim() === "") return toast.error("Please write a comment");
+
+    const reviewData = { userId, productCode: productId, rating, comment };
 
     try {
-      //  Prepare review data
-      const reviewData = {
-        productId,
-        rating,
-        comment,
-      };
+      let savedReview;
+      if (reviewId) {
+        savedReview = await updateReview(reviewId, reviewData);
+        setReviews(reviews.map(r => r.id === reviewId ? savedReview : r));
+        toast.success("Review updated!");
+      } else {
+        savedReview = await addReview(reviewData);
+        setReviews([savedReview, ...reviews]);
+        setReviewId(savedReview.id);
+        toast.success("Review added!");
+      }
 
-      //  Submit review
-      const response = await addReview(reviewData, userId);
-       toast.success("Review submitted successfully!");
-      console.log(response);
-
+      setRating(0);
       setComment("");
-    } catch (error) {
-      toast.error("Failed to submit review!");
-      console.error(error);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to submit review");
     }
   };
 
+  if (!token) return <p>Please login to write a review.</p>;
+
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="p-4 border rounded-lg shadow-md w-full max-w-md bg-white"
-    >
-      <h3 className="text-lg font-semibold mb-3">Write a Review</h3>
-
-      <label className="block mb-2">
-        Rating:
-        <select
-          value={rating}
-          onChange={(e) => setRating(e.target.value)}
-          className="ml-2 border p-1 rounded"
-        >
-          {[1, 2, 3, 4, 5].map((r) => (
-            <option key={r} value={r}>
-              {r} ⭐
-            </option>
-          ))}
-        </select>
-      </label>
-
+    <form onSubmit={handleSubmit} className="bg-white p-4 rounded shadow mt-4">
+      <div className="flex space-x-2 mb-2">
+        {[1,2,3,4,5].map(star => (
+          <span
+            key={star}
+            className={`cursor-pointer text-2xl ${star <= rating ? "text-yellow-500" : "text-gray-400"}`}
+            onClick={() => setRating(star)}
+          >★</span>
+        ))}
+      </div>
       <textarea
+        className="border p-2 w-full rounded mb-2"
+        placeholder="Write your review..."
         value={comment}
         onChange={(e) => setComment(e.target.value)}
-        placeholder="Write your feedback..."
-        className="border w-full p-2 rounded mb-3"
-        rows={3}
-        required
-      ></textarea>
-
-      <button
-        type="submit"
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-      >
-        Submit Review
+      />
+      <button className="bg-indigo-600 text-white py-2 px-4 rounded">
+        {reviewId ? "Update Review" : "Submit Review"}
       </button>
     </form>
   );

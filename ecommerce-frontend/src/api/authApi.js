@@ -1,16 +1,18 @@
 import axios from "axios";
+import api from "./axiosInstance";
 
-const BASE_URL = "http://localhost:9191/auth-api";
+const BASE_URL = "/auth-api"; // no need to repeat localhost if api already has baseURL
 
 export const registerUser = async (userData) => {
-  const response = await axios.post(`${BASE_URL}/register`, userData);
-  return response; // return full axios response
+  const response = await api.post(`${BASE_URL}/register`, userData);
+  return response; // full axios response
 };
 
 export const loginUser = async (credentials) => {
-  const response = await axios.post(`${BASE_URL}/login`, credentials);
-  return response; // return full axios response
+  const response = await api.post(`${BASE_URL}/login`, credentials);
+  return response; // full axios response
 };
+
 
 // export const loginUser = async (credentials) => {
 //   try {
